@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouse Planner — Multi-Agent System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06080c;
+  --surface: #0d1117;
+  --surface2: #151b25;
+  --border: #1e2736;
+  --accent: #00e87b;
+  --accent-dim: rgba(0,232,123,0.15);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.15);
+  --orange: #f97316;
+  --orange-dim: rgba(249,115,22,0.15);
+  --red: #ef4444;
+  --text: #c9d1d9;
+  --text-dim: #6e7681;
+  --text-bright: #f0f6fc;
+  --mono: 'IBM Plex Mono', monospace;
+  --display: 'Outfit', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--mono); overflow:hidden; height:100vh; }
+
+/* === LAYOUT === */
+.app {
+  display: grid;
+  grid-template-columns: 320px 1fr 280px;
+  grid-template-rows: 52px 1fr;
+  height: 100vh;
+}
+
+/* === HEADER === */
+.header {
+  grid-column: 1/-1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+}
+.header .logo {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+}
+.header .sep { width:1px; height:20px; background:var(--border); }
+.header .sub { font-size:11px; color:var(--text-dim); letter-spacing:0.5px; }
+.header .spacer { flex:1; }
+.header .dot {
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent);
+}
+.header .dot.active { animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.header .status-text { font-size:11px; color:var(--text-dim); }
+
+/* === LEFT PANEL === */
+.left {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.section-head {
+  padding: 14px 16px 10px;
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Config */
+.config { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.config .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.config .row.r2 { grid-template-columns: 1fr 1fr; }
+.field label {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: 7px 9px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--accent); }
+
+.btn-run {
+  width: 100%;
+  padding: 11px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 7px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+}
+.btn-run:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-run:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
+
+/* Agent Log */
+.agent-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+.agent-log::-webkit-scrollbar { width:4px; }
+.agent-log::-webkit-scrollbar-track { background:transparent; }
+.agent-log::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+.log-entry {
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.55;
+  border-left: 3px solid transparent;
+  animation: logSlide 0.35s ease;
+}
+@keyframes logSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+.log-entry.planner { background:var(--accent-dim); border-left-color:var(--accent); }
+.log-entry.floor { background:var(--orange-dim); border-left-color:var(--orange); }
+.log-entry.rack { background:var(--blue-dim); border-left-color:var(--blue); }
+.log-entry.error { background:rgba(239,68,68,0.1); border-left-color:var(--red); }
+.log-entry.memory { background:rgba(168,85,247,0.1); border-left-color:#a855f7; }
+
+.log-entry .agent-name {
+  font-weight: 600;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 3px;
+  display: block;
+}
+.log-entry.planner .agent-name { color:var(--accent); }
+.log-entry.floor .agent-name { color:var(--orange); }
+.log-entry.rack .agent-name { color:var(--blue); }
+.log-entry.memory .agent-name { color:#a855f7; }
+
+.thinking-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4,end) infinite;
+}
+@keyframes dots {
+  0% { content:''; } 25% { content:'.'; } 50% { content:'..'; } 75% { content:'...'; }
+}
+
+/* === CENTER - 3D VIEWPORT === */
+.viewport {
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+}
+.viewport canvas { display:block; width:100%!important; height:100%!important; }
+.viewport-overlay {
+  position: absolute;
+  top: 14px; left: 14px;
+  pointer-events: none;
+}
+.viewport-overlay .tag {
+  display: inline-block;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+/* === RIGHT PANEL - MEMORY === */
+.right {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.memory-panel {
+  flex:1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+.memory-panel::-webkit-scrollbar { width:4px; }
+.memory-panel::-webkit-scrollbar-track { background:transparent; }
+.memory-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+.mem-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  animation: logSlide 0.35s ease;
+}
+.mem-card h4 {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mem-card h4 .icon {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+}
+.mem-card .kv {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.mem-card .kv:last-child { border-bottom:none; }
+.mem-card .kv .k { color:var(--text-dim); }
+.mem-card .kv .v { color:var(--text-bright); font-weight:500; }
+
+.mem-card .coord-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 6px;
+}
+.coord-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.coord-item .label { color:var(--text-dim); font-size:9px; display:block; }
+.coord-item .val { color:var(--text-bright); }
+
+.free-area {
+  background: rgba(0,232,123,0.06);
+  border: 1px solid rgba(0,232,123,0.15);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--accent);
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 8px 16px 0;
+}
+.progress-bar .fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">▣ WAREHOUSE PLANNER</div>
+    <div class="sep"></div>
+    <div class="sub">MULTI-AGENT SYSTEM</div>
+    <div class="spacer"></div>
+    <div class="dot" id="statusDot"></div>
+    <div class="status-text" id="statusText">Ready</div>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div class="left">
+    <div class="section-head">Configuration</div>
+    <div class="config">
+      <div class="row">
+        <div class="field"><label>Floor W (m)</label><input type="number" id="floorW" value="60"></div>
+        <div class="field"><label>Floor L (m)</label><input type="number" id="floorL" value="40"></div>
+        <div class="field"><label>Floor H (m)</label><input type="number" id="floorH" value="12"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Rack W (m)</label><input type="number" id="rackW" value="2.5"></div>
+        <div class="field"><label>Rack L (m)</label><input type="number" id="rackL" value="1.2"></div>
+        <div class="field"><label>Rack H (m)</label><input type="number" id="rackH" value="6"></div>
+      </div>
+      <div class="row r2">
+        <div class="field"><label>Dock Doors</label><input type="number" id="dockCount" value="4"></div>
+        <div class="field"><label>Aisle Gap (m)</label><input type="number" id="aisleGap" value="3"></div>
+      </div>
+      <button class="btn-run" id="btnRun" onclick="runAgents()">▶ RUN AGENTS</button>
+      <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="section-head">Agent Log</div>
+    <div class="agent-log" id="agentLog"></div>
+  </div>
+
+  <!-- CENTER - 3D -->
+  <div class="viewport" id="viewport">
+    <div class="viewport-overlay">
+      <span class="tag" id="viewTag">3D VIEWPORT — Awaiting agents</span>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL - MEMORY -->
+  <div class="right">
+    <div class="section-head">Agent Memory</div>
+    <div class="memory-panel" id="memoryPanel">
+      <div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;">
+        Memory empty. Run agents to populate.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// THREE.JS SCENE SETUP
+// ============================================================
+const viewport = document.getElementById('viewport');
+let scene, camera, renderer, controls;
+let floorGroup, wallGroup, dockGroup, rackGroup;
+let mouseDown = false, mouseX = 0, mouseY = 0;
+let camTheta = Math.PI/4, camPhi = Math.PI/5, camDist = 80;
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x06080c);
+  scene.fog = new THREE.FogExp2(0x06080c, 0.003);
+
+  camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 500);
+  updateCamera();
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  viewport.appendChild(renderer.domElement);
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0x404060, 0.6);
+  scene.add(ambient);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(40, 60, 30);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.camera.near = 1;
+  dirLight.shadow.camera.far = 200;
+  dirLight.shadow.camera.left = -80;
+  dirLight.shadow.camera.right = 80;
+  dirLight.shadow.camera.top = 80;
+  dirLight.shadow.camera.bottom = -80;
+  scene.add(dirLight);
+
+  const pointLight = new THREE.PointLight(0x00e87b, 0.3, 100);
+  pointLight.position.set(0, 20, 0);
+  scene.add(pointLight);
+
+  // Grid helper
+  const grid = new THREE.GridHelper(120, 60, 0x1e2736, 0x111820);
+  grid.position.y = -0.01;
+  scene.add(grid);
+
+  // Groups
+  floorGroup = new THREE.Group(); scene.add(floorGroup);
+  wallGroup = new THREE.Group(); scene.add(wallGroup);
+  dockGroup = new THREE.Group(); scene.add(dockGroup);
+  rackGroup = new THREE.Group(); scene.add(rackGroup);
+
+  // Mouse orbit controls (manual)
+  viewport.addEventListener('mousedown', (e) => { mouseDown=true; mouseX=e.clientX; mouseY=e.clientY; });
+  viewport.addEventListener('mouseup', () => mouseDown=false);
+  viewport.addEventListener('mouseleave', () => mouseDown=false);
+  viewport.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    const dx = e.clientX - mouseX, dy = e.clientY - mouseY;
+    camTheta -= dx * 0.005;
+    camPhi = Math.max(0.1, Math.min(Math.PI/2.2, camPhi - dy * 0.005));
+    mouseX = e.clientX; mouseY = e.clientY;
+    updateCamera();
+  });
+  viewport.addEventListener('wheel', (e) => {
+    camDist = Math.max(20, Math.min(200, camDist + e.deltaY * 0.05));
+    updateCamera();
+  });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = viewport.clientWidth / viewport.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  });
+
+  animate();
+}
+
+function updateCamera() {
+  camera.position.x = camDist * Math.sin(camTheta) * Math.cos(camPhi);
+  camera.position.y = camDist * Math.sin(camPhi);
+  camera.position.z = camDist * Math.cos(camTheta) * Math.cos(camPhi);
+  camera.lookAt(0, 3, 0);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// AGENT MEMORY SYSTEM
+// ============================================================
+class AgentMemory {
+  constructor() {
+    this.store = {
+      floor: null,
+      walls: null,
+      docks: null,
+      racks: [],
+      occupiedAreas: [],
+      freeAreas: [],
+      totalFloorArea: 0,
+      usedArea: 0,
+      freeArea: 0,
+    };
+  }
+
+  setFloor(data) {
+    this.store.floor = data;
+    this.store.totalFloorArea = data.width * data.length;
+    this.store.freeArea = this.store.totalFloorArea;
+    this.updateMemoryUI();
+  }
+
+  setWalls(data) {
+    this.store.walls = data;
+    this.updateMemoryUI();
+  }
+
+  setDocks(data) {
+    this.store.docks = data;
+    this.updateMemoryUI();
+  }
+
+  addRack(rackData) {
+    this.store.racks.push(rackData);
+    this.store.occupiedAreas.push({
+      id: rackData.id,
+      x: rackData.x, z: rackData.z,
+      w: rackData.w, l: rackData.l,
+      area: rackData.w * rackData.l
+    });
+    this.store.usedArea = this.store.occupiedAreas.reduce((s, a) => s + a.area, 0);
+    this.store.freeArea = this.store.totalFloorArea - this.store.usedArea;
+    this.computeFreeAreas();
+  }
+
+  computeFreeAreas() {
+    // Simplified free area computation — margins around rack clusters
+    const f = this.store.floor;
+    if (!f) return;
+    const hw = f.width / 2, hl = f.length / 2;
+    const occupied = this.store.occupiedAreas;
+
+    // Find bounding box of all racks
+    if (occupied.length === 0) {
+      this.store.freeAreas = [{ label:'Entire Floor', x1:-hw, z1:-hl, x2:hw, z2:hl, area:f.width*f.length }];
+      return;
+    }
+
+    let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
+    occupied.forEach(o => {
+      minX = Math.min(minX, o.x - o.w/2);
+      maxX = Math.max(maxX, o.x + o.w/2);
+      minZ = Math.min(minZ, o.z - o.l/2);
+      maxZ = Math.max(maxZ, o.z + o.l/2);
+    });
+
+    this.store.freeAreas = [];
+    // Top strip
+    if (maxZ < hl - 1) this.store.freeAreas.push({ label:'North Zone', x1:-hw, z1:maxZ, x2:hw, z2:hl, area: f.width*(hl-maxZ) });
+    // Bottom strip
+    if (minZ > -hl + 1) this.store.freeAreas.push({ label:'South Zone', x1:-hw, z1:-hl, x2:hw, z2:minZ, area: f.width*(minZ+hl) });
+    // Left strip
+    if (minX > -hw + 1) this.store.freeAreas.push({ label:'West Zone', x1:-hw, z1:minZ, x2:minX, z2:maxZ, area: (minX+hw)*(maxZ-minZ) });
+    // Right strip
+    if (maxX < hw - 1) this.store.freeAreas.push({ label:'East Zone', x1:maxX, z1:minZ, x2:hw, z2:maxZ, area: (hw-maxX)*(maxZ-minZ) });
+
+    this.updateMemoryUI();
+  }
+
+  updateMemoryUI() {
+    const panel = document.getElementById('memoryPanel');
+    let html = '';
+
+    // Floor memory
+    if (this.store.floor) {
+      const f = this.store.floor;
+      html += `
+        <div class="mem-card">
+          <h4><span class="icon" style="background:var(--orange-dim);color:var(--orange);">F</span> Floor</h4>
+          <div class="kv"><span class="k">Dimensions</span><span class="v">${f.width}×${f.length}×${f.height}m</span></div>
+          <div class="kv"><span class="k">Total Area</span><span class="v">${this.store.totalFloorArea} m²</span></div>
+        </div>`;
+    }
+
+    // Walls & Docks
+    if (this.store.walls) {
+      html += `
+        <div class="mem-card">
+          <h4><span class="icon" style="background:var(--orange-dim);color:var(--orange);">W</span> Walls & Docks</h4>
+          <div class="kv"><span class="k">Walls</span><span class="v">4 sides built</span></div>
+          <div class="kv"><span class="k">Dock Doors</span><span class="v">${this.store.docks ? this.store.docks.count : 0}</span></div>
+          <div class="kv"><span class="k">Dock Position</span><span class="v">${this.store.docks ? this.store.docks.position : '—'}</span></div>
+        </div>`;
+    }
+
+    // Racks summary
+    if (this.store.racks.length > 0) {
+      html += `
+        <div class="mem-card">
+          <h4><span class="icon" style="background:var(--blue-dim);color:var(--blue);">R</span> Rack Placement</h4>
+          <div class="kv"><span class="k">Racks Placed</span><span class="v">${this.store.racks.length}</span></div>
+          <div class="kv"><span class="k">Rack Size</span><span class="v">${this.store.racks[0].w}×${this.store.racks[0].l}×${this.store.racks[0].h}m</span></div>
+          <div class="kv"><span class="k">Occupied Area</span><span class="v">${this.store.usedArea.toFixed(1)} m²</span></div>
+          <div class="kv"><span class="k">Utilization</span><span class="v">${(this.store.usedArea/this.store.totalFloorArea*100).toFixed(1)}%</span></div>
+        </div>`;
+
+      // Occupied coordinates
+      html += `
+        <div class="mem-card">
+          <h4><span class="icon" style="background:rgba(168,85,247,0.15);color:#a855f7;">◈</span> Occupied Coords</h4>
+          <div class="coord-grid">`;
+      this.store.occupiedAreas.slice(-8).forEach(o => {
+        html += `<div class="coord-item"><span class="label">${o.id}</span><span class="val">(${o.x.toFixed(1)}, ${o.z.toFixed(1)})</span></div>`;
+      });
+      if (this.store.occupiedAreas.length > 8) html += `<div class="coord-item"><span class="val">+${this.store.occupiedAreas.length-8} more</span></div>`;
+      html += `</div></div>`;
+
+      // Free areas
+      html += `
+        <div class="mem-card">
+          <h4><span class="icon" style="background:var(--accent-dim);color:var(--accent);">◻</span> Free Areas</h4>
+          <div class="kv"><span class="k">Free Space</span><span class="v">${this.store.freeArea.toFixed(1)} m²</span></div>`;
+      this.store.freeAreas.forEach(a => {
+        html += `<div class="free-area">
+          <strong>${a.label}</strong><br>
+          (${a.x1.toFixed(1)},${a.z1.toFixed(1)}) → (${a.x2.toFixed(1)},${a.z2.toFixed(1)})<br>
+          Area: ${a.area.toFixed(1)} m²
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    panel.innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;">Memory empty. Run agents to populate.</div>';
+  }
+}
+
+// ============================================================
+// AGENT TOOLS (the actual code that builds geometry)
+// ============================================================
+const Tools = {
+  build_floor(w, l, h) {
+    // Clear previous
+    while(floorGroup.children.length) floorGroup.remove(floorGroup.children[0]);
+
+    const geo = new THREE.BoxGeometry(w, 0.3, l);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1a1f2e,
+      roughness: 0.8,
+      metalness: 0.1,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = -0.15;
+    mesh.receiveShadow = true;
+    floorGroup.add(mesh);
+
+    // Floor edge lines
+    const edgeGeo = new THREE.EdgesGeometry(geo);
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0x00e87b, transparent:true, opacity:0.3 });
+    const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    edges.position.y = -0.15;
+    floorGroup.add(edges);
+
+    // Floor markings (subtle grid)
+    const linesMat = new THREE.LineBasicMaterial({ color: 0x252d3d, transparent:true, opacity:0.5 });
+    for (let x = -w/2; x <= w/2; x += 5) {
+      const pts = [new THREE.Vector3(x, 0.01, -l/2), new THREE.Vector3(x, 0.01, l/2)];
+      const g = new THREE.BufferGeometry().setFromPoints(pts);
+      floorGroup.add(new THREE.Line(g, linesMat));
+    }
+    for (let z = -l/2; z <= l/2; z += 5) {
+      const pts = [new THREE.Vector3(-w/2, 0.01, z), new THREE.Vector3(w/2, 0.01, z)];
+      const g = new THREE.BufferGeometry().setFromPoints(pts);
+      floorGroup.add(new THREE.Line(g, linesMat));
+    }
+
+    return { width: w, length: l, height: h };
+  },
+
+  build_walls(w, l, h) {
+    while(wallGroup.children.length) wallGroup.remove(wallGroup.children[0]);
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x2a3040,
+      roughness: 0.7,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    });
+    const wallEdgeMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent:true, opacity:0.25 });
+
+    // 4 walls
+    const wallDefs = [
+      { pos:[0,h/2,-l/2], size:[w,h,0.2] },    // back
+      { pos:[0,h/2,l/2], size:[w,h,0.2] },      // front
+      { pos:[-w/2,h/2,0], size:[0.2,h,l] },     // left
+      { pos:[w/2,h/2,0], size:[0.2,h,l] },      // right
+    ];
+    wallDefs.forEach(d => {
+      const geo = new THREE.BoxGeometry(...d.size);
+      const mesh = new THREE.Mesh(geo, wallMat);
+      mesh.position.set(...d.pos);
+      wallGroup.add(mesh);
+
+      const edgeGeo = new THREE.EdgesGeometry(geo);
+      const edges = new THREE.LineSegments(edgeGeo, wallEdgeMat);
+      edges.position.set(...d.pos);
+      wallGroup.add(edges);
+    });
+
+    return { walls: 4 };
+  },
+
+  build_dock_doors(w, l, h, count, position) {
+    while(dockGroup.children.length) dockGroup.remove(dockGroup.children[0]);
+
+    const dockMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness:0.4, metalness:0.3 });
+    const spacing = w / (count + 1);
+
+    for (let i = 0; i < count; i++) {
+      const x = -w/2 + spacing * (i + 1);
+      const dockGeo = new THREE.BoxGeometry(3, 4, 0.5);
+      const dock = new THREE.Mesh(dockGeo, dockMat);
+      dock.position.set(x, 2, position === 'front' ? l/2 : -l/2);
+      dock.castShadow = true;
+      dockGroup.add(dock);
+
+      // Dock frame glow
+      const glowGeo = new THREE.EdgesGeometry(dockGeo);
+      const glowMat = new THREE.LineBasicMaterial({ color:0xf97316 });
+      const glow = new THREE.LineSegments(glowGeo, glowMat);
+      glow.position.copy(dock.position);
+      dockGroup.add(glow);
+    }
+
+    return { count, position };
+  },
+
+  build_rack(x, z, w, l, h, id) {
+    const rackMat = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6,
+      roughness: 0.5,
+      metalness: 0.4,
+    });
+
+    // Main rack body
+    const geo = new THREE.BoxGeometry(w, h, l);
+    const mesh = new THREE.Mesh(geo, rackMat);
+    mesh.position.set(x, h/2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // Shelves inside
+    const shelfMat = new THREE.MeshStandardMaterial({ color:0x4a6fa5, roughness:0.6, metalness:0.2 });
+    const shelfCount = Math.floor(h / 1.5);
+    for (let s = 1; s < shelfCount; s++) {
+      const shelfGeo = new THREE.BoxGeometry(w - 0.1, 0.08, l - 0.1);
+      const shelf = new THREE.Mesh(shelfGeo, shelfMat);
+      shelf.position.set(x, s * 1.5, z);
+      rackGroup.add(shelf);
+    }
+
+    // Edge highlight
+    const edgeGeo = new THREE.EdgesGeometry(geo);
+    const edgeMat = new THREE.LineBasicMaterial({ color:0x60a5fa, transparent:true, opacity:0.5 });
+    const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    edges.position.set(x, h/2, z);
+    rackGroup.add(edges);
+
+    rackGroup.add(mesh);
+
+    return { id, x, z, w, l, h };
+  }
+};
+
+// ============================================================
+// LANGGRAPH-STYLE AGENT SYSTEM
+// ============================================================
+const memory = new AgentMemory();
+
+function log(type, agent, message) {
+  const logEl = document.getElementById('agentLog');
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.innerHTML = `<span class="agent-name">${agent}</span>${message}`;
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setProgress(pct) {
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function setStatus(text, active) {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  if (active) dot.classList.add('active'); else dot.classList.remove('active');
+}
+
+function setViewTag(text) {
+  document.getElementById('viewTag').textContent = text;
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ---- PLANNER AGENT (LangGraph State Machine) ----
+async function plannerAgent(state) {
+  log('planner', 'Planner Agent', 'Initializing warehouse planning pipeline...');
+  await wait(600);
+  log('planner', 'Planner Agent', `Input: Floor ${state.floorW}×${state.floorL}×${state.floorH}m, Racks ${state.rackW}×${state.rackL}×${state.rackH}m, Docks: ${state.dockCount}, Aisle: ${state.aisleGap}m`);
+  await wait(400);
+
+  // Step 1: Dispatch to Floor Agent
+  log('planner', 'Planner Agent', 'Dispatching → <strong>Floor Agent</strong>');
+  state.phase = 'floor';
+  return state;
+}
+
+// ---- FLOOR AGENT ----
+async function floorAgent(state) {
+  setStatus('Floor Agent thinking...', true);
+  setViewTag('FLOOR AGENT — Building...');
+  log('floor', 'Floor Agent', `<span class="thinking-dots">Thinking</span>`);
+  await wait(800);
+
+  // Tool: build_floor
+  log('floor', 'Floor Agent', `🔧 Tool: <strong>build_floor</strong>(${state.floorW}, ${state.floorL}, ${state.floorH})`);
+  await wait(500);
+  const floorData = Tools.build_floor(state.floorW, state.floorL, state.floorH);
+  memory.setFloor({ width: state.floorW, length: state.floorL, height: state.floorH });
+  setProgress(20);
+  log('floor', 'Floor Agent', '✓ Floor built — area: ' + (state.floorW * state.floorL) + ' m²');
+  await wait(400);
+
+  // Tool: build_walls
+  log('floor', 'Floor Agent', `🔧 Tool: <strong>build_walls</strong>(${state.floorW}, ${state.floorL}, ${state.floorH})`);
+  await wait(500);
+  Tools.build_walls(state.floorW, state.floorL, state.floorH);
+  memory.setWalls({ count: 4 });
+  setProgress(35);
+  log('floor', 'Floor Agent', '✓ 4 walls erected');
+  await wait(400);
+
+  // Tool: build_dock_doors
+  log('floor', 'Floor Agent', `🔧 Tool: <strong>build_dock_doors</strong>(count=${state.dockCount}, position=front)`);
+  await wait(500);
+  const dockData = Tools.build_dock_doors(state.floorW, state.floorL, state.floorH, state.dockCount, 'front');
+  memory.setDocks({ count: state.dockCount, position: 'front' });
+  setProgress(45);
+  log('floor', 'Floor Agent', '✓ ' + state.dockCount + ' dock doors installed on front wall');
+
+  setViewTag('FLOOR COMPLETE — Showing warehouse shell');
+  log('floor', 'Floor Agent', '🏗️ <strong>Floor phase complete.</strong> Returning to Planner.');
+  state.phase = 'racks';
+  return state;
+}
+
+// ---- RACKS AGENT ----
+async function racksAgent(state) {
+  setStatus('Racks Agent thinking...', true);
+  setViewTag('RACKS AGENT — Planning layout...');
+
+  // Clear previous racks
+  while(rackGroup.children.length) rackGroup.remove(rackGroup.children[0]);
+
+  log('rack', 'Racks Agent', `<span class="thinking-dots">Analyzing floor space</span>`);
+  await wait(800);
+
+  log('memory', 'Memory', `Reading floor: ${state.floorW}×${state.floorL}m = ${state.floorW*state.floorL} m²`);
+  await wait(300);
+
+  const rw = state.rackW, rl = state.rackL, rh = state.rackH;
+  const gap = state.aisleGap;
+  const margin = 4; // wall clearance
+  const dockZone = 6; // clearance for dock doors
+
+  const hw = state.floorW / 2;
+  const hl = state.floorL / 2;
+
+  // Compute rack positions
+  const startX = -hw + margin;
+  const endX = hw - margin;
+  const startZ = -hl + margin;
+  const endZ = hl - margin - dockZone; // leave space for docks at front
+
+  log('rack', 'Racks Agent', `Rack zone: X[${startX.toFixed(1)} → ${endX.toFixed(1)}], Z[${startZ.toFixed(1)} → ${endZ.toFixed(1)}]`);
+  await wait(400);
+
+  // Place racks in rows
+  let rackId = 0;
+  const positions = [];
+  let z = startZ + rl/2;
+  while (z + rl/2 <= endZ) {
+    let x = startX + rw/2;
+    while (x + rw/2 <= endX) {
+      positions.push({ x, z, id: `R${String(rackId).padStart(3,'0')}` });
+      rackId++;
+      x += rw + gap;
+    }
+    z += rl + gap;
+  }
+
+  log('rack', 'Racks Agent', `Computed ${positions.length} rack positions with ${gap}m aisle gaps`);
+  await wait(400);
+
+  setProgress(55);
+
+  // Place racks with animation
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i];
+    const rackData = Tools.build_rack(p.x, p.z, rw, rl, rh, p.id);
+    memory.addRack(rackData);
+
+    // Log every nth rack
+    if (i % Math.max(1, Math.floor(positions.length / 8)) === 0 || i === positions.length - 1) {
+      log('rack', 'Racks Agent', `🔧 Placed <strong>${p.id}</strong> at (${p.x.toFixed(1)}, ${p.z.toFixed(1)}) — ${i+1}/${positions.length}`);
+      setProgress(55 + (i / positions.length) * 35);
+    }
+
+    await wait(30 + Math.max(0, 80 - positions.length));
+  }
+
+  log('memory', 'Memory', `Updated: ${positions.length} racks, ${memory.store.usedArea.toFixed(1)} m² occupied, ${memory.store.freeArea.toFixed(1)} m² free`);
+  memory.computeFreeAreas();
+  memory.updateMemoryUI();
+
+  setProgress(95);
+  log('rack', 'Racks Agent', `✓ <strong>All ${positions.length} racks placed.</strong> Returning to Planner.`);
+  state.phase = 'done';
+  return state;
+}
+
+// ---- LANGGRAPH EXECUTION ENGINE ----
+async function runAgents() {
+  const btn = document.getElementById('btnRun');
+  btn.disabled = true;
+  document.getElementById('agentLog').innerHTML = '';
+  document.getElementById('memoryPanel').innerHTML = '';
+  setProgress(0);
+
+  // Clear 3D
+  [floorGroup, wallGroup, dockGroup, rackGroup].forEach(g => {
+    while(g.children.length) g.remove(g.children[0]);
+  });
+
+  // Read config
+  const state = {
+    floorW: parseFloat(document.getElementById('floorW').value) || 60,
+    floorL: parseFloat(document.getElementById('floorL').value) || 40,
+    floorH: parseFloat(document.getElementById('floorH').value) || 12,
+    rackW: parseFloat(document.getElementById('rackW').value) || 2.5,
+    rackL: parseFloat(document.getElementById('rackL').value) || 1.2,
+    rackH: parseFloat(document.getElementById('rackH').value) || 6,
+    dockCount: parseInt(document.getElementById('dockCount').value) || 4,
+    aisleGap: parseFloat(document.getElementById('aisleGap').value) || 3,
+    phase: 'plan'
+  };
+
+  // Adjust camera
+  camDist = Math.max(state.floorW, state.floorL) * 1.4;
+  updateCamera();
+
+  // LangGraph-style state machine
+  try {
+    // Node: Planner
+    await plannerAgent(state);
+    await wait(500);
+
+    // Node: Floor Agent
+    await floorAgent(state);
+    await wait(800);
+
+    // Node: Racks Agent
+    await racksAgent(state);
+    await wait(500);
+
+    // Node: Complete
+    setProgress(100);
+    setStatus('Complete', false);
+    setViewTag(`WAREHOUSE COMPLETE — ${memory.store.racks.length} racks placed`);
+    log('planner', 'Planner Agent', `🎉 <strong>Pipeline complete.</strong> ${memory.store.racks.length} racks, ${memory.store.usedArea.toFixed(1)} m² used (${(memory.store.usedArea/memory.store.totalFloorArea*100).toFixed(1)}%), ${memory.store.freeArea.toFixed(1)} m² free.`);
+
+  } catch (err) {
+    log('error', 'Error', err.message);
+    setStatus('Error', false);
+  }
+
+  btn.disabled = false;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initThree();
+</script>
+</body>
+</html>

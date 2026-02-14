@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+langchain
+langgraph
+pandas
+numpy
+python-multipart
+websockets
+langchain-google-genai
+python-dotenv
