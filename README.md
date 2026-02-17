@@ -44,3 +44,23 @@ A multi-agent system for warehouse planning and optimization using LangGraph and
 -   Upload a CSV file containing warehouse data.
 -   The agents will process the data and generate a layout plan.
 -   You can view the results on the web interface.
+
+## Simulation Showcase
+
+After uploading the CSV, the system generates a 3D layout. Check out this sample:
+
+<video width="640" height="480" controls>
+  <source src="video/sample_clip1.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+### Visual Legend
+-   **🟨 Yellow Boxes**: Forklifts
+-   **🟦 Light Blue Zones**: Staging Areas
+-   **🟩 Light Green Zones**: Shipping Areas
+-   **⬜ White Rectangles (on walls)**: Dock Doors
+
+## Upcoming Features
+1.  **More Realistic Warehouse**: Enhanced visuals and detailed models.
+2.  **A Complete Warehouse**: Comprehensive functional simulation including inventory flow.
+3.  **Simulation**: Dynamic agent movement and interaction.
