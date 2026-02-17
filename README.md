@@ -54,7 +54,7 @@ After uploading the CSV, the system generates a 3D layout. Check out this sample
 ### Visual Legend
 -   **🟨 Yellow Boxes**: Forklifts
 -   **🟩 Green Zones**: Staging Areas
--   **🟦 Blue/Grey Zones**: Shipping Areas
+-   **⬜ Grey Zones**: Shipping Areas
 -   **⬜ White Rectangles (on walls)**: Dock Doors
 
 ## Upcoming Features

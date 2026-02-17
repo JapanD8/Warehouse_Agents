@@ -475,7 +475,7 @@ def area_agent(state: AgentState):
             shx += (shw + 5.0) 
             
         zones.append({
-             "type": "zone", "label": "Shipping Area", "color": 0x778899, # Light Slate Gray (Blue/Grey)
+             "type": "zone", "label": "Shipping Area", "color": 0x9e9e9e, # Grey
              "x": shx, "z": shz, "w": shw, "l": shl
         })
         new_messages.append(f"Area Agent: Placing Shipping Area at ({shx:.1f}, {shz:.1f})")
