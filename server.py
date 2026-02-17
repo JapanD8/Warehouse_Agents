@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import shutil
@@ -105,6 +105,47 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except Exception as e:
         print(f"WS Error: {e}")
+
+@app.get("/download", response_class=HTMLResponse)
+async def download_scene():
+    try:
+        # 1. Read Memory
+        if not os.path.exists("warehouse_memory.json"):
+            return HTMLResponse("<h1>Error: No warehouse data found. Run planner first.</h1>")
+            
+        with open("warehouse_memory.json", "r") as f:
+            memory_data = f.read()
+            
+        # 2. Read JS Logic
+        js_path = os.path.join("static", "js", "three_scene.js")
+        if not os.path.exists(js_path):
+             return HTMLResponse("<h1>Error: JS logic not found.</h1>")
+             
+        with open(js_path, "r") as f:
+            js_content = f.read()
+            
+        # 3. Read Template
+        if not os.path.exists("export_template.html"):
+            return HTMLResponse("<h1>Error: Template not found.</h1>")
+            
+        with open("export_template.html", "r") as f:
+            template = f.read()
+            
+        # 4. Inject
+        # We need to make sure JS doesn't have syntax errors when injected
+        # The template expects __SCENE_DATA__ and __THREE_JS_LOGIC__
+        
+        final_html = template.replace("__SCENE_DATA__", memory_data)
+        final_html = final_html.replace("__THREE_JS_LOGIC__", js_content)
+        
+        # Force download header? Or just view?
+        # User asked for "save", so let's make it downloadable or just openable.
+        # "Content-Disposition: attachment" forces download
+        
+        return HTMLResponse(content=final_html, headers={"Content-Disposition": "attachment; filename=warehouse_scene.html"})
+
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error generating export: {str(e)}</h1>")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

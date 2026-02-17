@@ -1,2 +1,7 @@
 floor,60,40,12,1
 rack,2.5,1.2,6,45
+forklift,1.5,2.5,2.5,10
+docks,bottom,4,5
+shipping,10,10
+staging,6,6
+

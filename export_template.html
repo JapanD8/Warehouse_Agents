@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse 3D Verification Export</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f1115;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+    <div id="info">
+        <h2>Warehouse Verification</h2>
+        <p>Generated Export</p>
+        <p>Left Click: Rotate | Right Click: Pan | Scroll: Zoom</p>
+    </div>
+    <div id="scene-container" style="width: 100vw; height: 100vh;"></div>
+
+    <script>
+        // --- INJECTED DATA ---
+        const WAREHOUSE_DATA = __SCENE_DATA__;
+
+        // --- INJECTED LOGIC ---
+        // We will wrap the logic to ensure it runs after load
+
+        __THREE_JS_LOGIC__
+
+        // Initialize
+        window.onload = function () {
+            initScene('scene-container');
+            updateScene(WAREHOUSE_DATA.occupied_spaces || []);
+            // Also build floor/walls from WAREHOUSE_DATA.floor if needed, 
+            // checking if updateScene handles it or if we need manual call.
+            // updateScene usually expects a list of items. 
+            // The memory file has 'occupied_spaces' list.
+            // But floor/walls might be separate in memory 'floor' object?
+            // Let's check how agents save it. 
+            // Agents save 'occupied_spaces' which includes floor and walls items!
+            // So passing WAREHOUSE_DATA.occupied_spaces is correct.
+        };
+    </script>
+</body>
+
+</html>

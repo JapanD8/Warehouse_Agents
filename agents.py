@@ -35,6 +35,10 @@ class AgentState(TypedDict):
     next_step: str
     forklift_data: Dict[str, Any]
     assigned_area: Dict[str, float]
+    assigned_area: Dict[str, float]
+    dock_data: Dict[str, Any]
+    staging_data: Dict[str, float]
+    shipping_data: Dict[str, float]
 
 # --- Agents ---
 
@@ -70,6 +74,15 @@ def planner_agent(state: AgentState):
             },
             "forklift_area": {
                 "x": float, "z": float, "width": float, "length": float
+            },
+            "docks": {
+                "side": "top"|"bottom"|"left"|"right", "count": int, "width": float
+            },
+            "staging": {
+                "width": float, "length": float
+            },
+            "shipping": {
+                "width": float, "length": float
             }
         }
         If dimensions are missing, make reasonable assumptions:
@@ -77,6 +90,9 @@ def planner_agent(state: AgentState):
         Rack: 2.5x1.2x6
         Forklift: 1.5x2.5x2.5, count=1 if mentioned but no count.
         Forklift Area: Optional. If provided, use it. If not, omit or return null.
+        Docks: Optional.
+        Staging: Optional. Parse width/length if provided.
+        Shipping: Optional. Parse width/length if provided.
         """
         
         response = llm.invoke([
@@ -91,8 +107,13 @@ def planner_agent(state: AgentState):
         start_plan = parse_json_markdown(response.content)
         floor_dims = start_plan.get('floor', {'width': 60, 'length': 40, 'height': 12})
         racks_data = start_plan.get('racks', [])
+        racks_data = start_plan.get('racks', [])
         forklift_data = start_plan.get('forklifts', {})
         forklift_area = start_plan.get('forklift_area', None)
+        forklift_area = start_plan.get('forklift_area', None)
+        dock_data = start_plan.get('docks', {})
+        staging_data = start_plan.get('staging', {})
+        shipping_data = start_plan.get('shipping', {})
         
         rack_id_counter = 1
         for r_batch in racks_data:
@@ -117,6 +138,10 @@ def planner_agent(state: AgentState):
         "racks_to_place": racks_to_place,
         "forklift_data": forklift_data,
         "assigned_area": forklift_area, # Initial assignment from LLM if any 
+        "assigned_area": forklift_area, # Initial assignment from LLM if any 
+        "dock_data": dock_data,
+        "staging_data": staging_data,
+        "shipping_data": shipping_data,
         "messages": new_messages,
         "next_step": "floor_agent"
     }
@@ -339,49 +364,148 @@ def area_agent(state: AgentState):
     forklift_data = state.get('forklift_data', {})
     assigned_area = state.get('assigned_area')
     floor = state['floor_dims']
+    dock_data = state.get('dock_data', {})
     
-    if not forklift_data or not forklift_data.get('count', 0):
-        new_messages.append("Area Agent: No forklifts requested.")
-        # If no forklifts, we skip forklift agent? Or just pass empty.
-        return {
-            "messages": new_messages,
-            "next_step": "end"
-        }
+    zones = [] # To store staging/shipping items
+    
+    # --- STAGING & SHIPPING PLACEMENT ---
+    # Helper to check collision with existing racks
+    placed_items = state.get('placed_items', [])
+    racks = [p for p in placed_items if p['type'] == 'rack']
+    
+    def check_collision(x, z, w, l, margin=0.5):
+        min_x = x - w/2 - margin
+        max_x = x + w/2 + margin
+        min_z = z - l/2 - margin
+        max_z = z + l/2 + margin
+        
+        for r in racks:
+            # Rack rect
+            r_min_x = r['x'] - r['w']/2
+            r_max_x = r['x'] + r['w']/2
+            r_min_z = r['z'] - r['l']/2
+            r_max_z = r['z'] + r['l']/2
+            
+            if (min_x < r_max_x and max_x > r_min_x and
+                min_z < r_max_z and max_z > r_min_z):
+                return True # Correlation
+        return False
 
-    # If area already assigned (by LLM reading CSV), use it
+    def find_free_spot_near_dock(w_zone, l_zone):
+        # Prefer dock side.
+        dock_side = dock_data.get('side', 'top').lower() if dock_data else 'top'
+        # Offset from wall: 5m
+        
+        fw = floor['width']
+        fl = floor['length']
+        
+        candidates = []
+        
+        if dock_side == 'top': # Z = -fl/2
+            # Try strip at Z = -fl/2 + 5 + l_zone/2
+            z_target = -fl/2 + 5.0 + l_zone/2
+            # Scan X from left to right
+            start_x = -fw/2 + w_zone/2 + 2
+            end_x = fw/2 - w_zone/2 - 2
+            candidates.append((start_x, z_target))
+            candidates.append((0, z_target)) # Center
+            candidates.append((end_x, z_target))
+            
+        elif dock_side == 'bottom': # Z = fl/2
+            z_target = fl/2 - 5.0 - l_zone/2
+            candidates.append((-fw/2 + w_zone/2 + 2, z_target))
+            candidates.append((0, z_target))
+            candidates.append((fw/2 - w_zone/2 - 2, z_target))
+            
+        elif dock_side == 'left': # X = -fw/2
+            x_target = -fw/2 + 5.0 + w_zone/2
+            candidates.append((x_target, -fl/2 + l_zone/2 + 2))
+            candidates.append((x_target, 0))
+            candidates.append((x_target, fl/2 - l_zone/2 - 2))
+            
+        elif dock_side == 'right': # X = fw/2
+            x_target = fw/2 - 5.0 - w_zone/2
+            candidates.append((x_target, -fl/2 + l_zone/2 + 2))
+            candidates.append((x_target, 0))
+            candidates.append((x_target, fl/2 - l_zone/2 - 2))
+            
+        # Fallback: Opposite side
+        candidates.append((0, 0)) # Center of warehouse?
+        
+        for cand_x, cand_z in candidates:
+             if not check_collision(cand_x, cand_z, w_zone, l_zone):
+                 return cand_x, cand_z
+        
+        # If all fail, just place at (0,0) and warn? Or generic corner.
+        return 0, 0
+
+    staging = state.get('staging_data', {})
+    if staging and staging.get('width'):
+        sw = float(staging['width'])
+        sl = float(staging['length'])
+        sx, sz = find_free_spot_near_dock(sw, sl)
+        zones.append({
+            "type": "zone", "label": "Staging Area", "color": 0xadd8e6, # Light Blue
+            "x": sx, "z": sz, "w": sw, "l": sl
+        })
+        new_messages.append(f"Area Agent: Placing Staging Area at ({sx:.1f}, {sz:.1f})")
+
+    shipping = state.get('shipping_data', {})
+    if shipping and shipping.get('width'):
+        shw = float(shipping['width'])
+        shl = float(shipping['length'])
+        # Try to avoid exact same spot if possible? simple logic: existing collision check checks RACKS not ZONES.
+        # Let's add previously added zones to collision check momentarily?
+        # For simplicity, let's just shift shipping slightly if it collides with staging?
+        # Actually, let's rely on finding a different candidate if I updated logic to check 'zones' too.
+        # Quick fix: Offset shipping search or just rely on candidates finding a new spot if I run check_collision against zones too.
+        
+        # Add current zones to a temp list for collision
+        # But check_collision only checks 'racks'. 
+        
+        shx, shz = find_free_spot_near_dock(shw, shl)
+        # Check vs staging
+        overlap = False
+        for z in zones:
+            if abs(z['x'] - shx) < (z['w'] + shw)/2 and abs(z['z'] - shz) < (z['l'] + shl)/2:
+                overlap = True
+        
+        if overlap:
+            # Shift along X or Z
+            shx += (shw + 5.0) 
+            
+        zones.append({
+             "type": "zone", "label": "Shipping Area", "color": 0x90ee90, # Light Green
+             "x": shx, "z": shz, "w": shw, "l": shl
+        })
+        new_messages.append(f"Area Agent: Placing Shipping Area at ({shx:.1f}, {shz:.1f})")
+
+
+    # --- FORKLIFTS ---
+    # Add zones to state placed_items temporarily so forklift agent doesn't overwrite?
+    # Forklift agent relies on 'assigned_area' which is separate.
+    
+    # We still need to assign forklift area.
+    
+    # Logic for forklifts:
+    # If assigned_area is pre-set, use it.
+    # Else, calc.
+    
     if assigned_area and assigned_area.get('width') and assigned_area.get('length'):
-        new_messages.append(f"Area Agent: Using pre-defined area at ({assigned_area.get('x')}, {assigned_area.get('z')})")
         return {
             "messages": new_messages,
             "assigned_area": assigned_area,
+            "placed_items": zones, # Add zones to placement
             "next_step": "forklift"
         }
-
-    # Else find a spot
-    new_messages.append("Area Agent: No area specified. Searching for empty space...")
     
-    # Strategy: Place in a corner or side.
-    # Let's find the extent of racks to avoid them.
-    # We can load memory or use state 'placed_items' (racks only).
-    # Simple approach: Place in top-right corner or similar.
-    # Floor goes from -W/2 to W/2 and -L/2 to L/2.
-    
-    # Let's pick a spot at X = +Width/2 - Margin, Z = +Length/2 - Margin
-    # Just a dedicated parking zone.
+    # Find spot for forklifts (that isn't staging/shipping/rack)
+    # ... (existing logic for corner, but ensure no collision)
     
     w_floor = floor['width']
     l_floor = floor['length']
-    
-    # Define a default area size for forklifts
     area_w = 10.0
     area_l = 10.0
-    
-    # Position: Bottom Right? (X positive, Z positive)
-    # Racks usually centered or widespread.
-    # Let's check max_x of racks if possible, else just use floor edge.
-    
-    # Safe bet: X = w_floor/2 - area_w/2 - 2 (margin)
-    #           Z = l_floor/2 - area_l/2 - 2
     
     pos_x = (w_floor/2) - (area_w/2) - 2
     pos_z = (l_floor/2) - (area_l/2) - 2
@@ -393,10 +517,11 @@ def area_agent(state: AgentState):
         "length": area_l
     }
     
-    new_messages.append(f"Area Agent: Assigned default area at X={pos_x:.1f}, Z={pos_z:.1f}")
+    new_messages.append(f"Area Agent: Assigned default forklift area at X={pos_x:.1f}, Z={pos_z:.1f}")
     
     return {
         "assigned_area": assigned_area,
+        "placed_items": zones, # Append zones
         "messages": new_messages,
         "next_step": "forklift"
     }
@@ -453,8 +578,135 @@ def forklift_agent(state: AgentState):
     return {
         "placed_items": items,
         "messages": new_messages,
+        "next_step": "dock"
+    }
+
+# 7. Dock Agent: Places dock doors
+def dock_agent(state: AgentState):
+    print("--- Dock Agent ---")
+    new_messages = ["Dock Agent: Checking for dock doors..."]
+    
+    dock_data = state.get('dock_data', {})
+    if not dock_data or not dock_data.get('count', 0):
+        new_messages.append("Dock Agent: No docks requested.")
+        # Even if no docks, we should finalize memory here as it's the last step
+        _save_memory(state, [])
+        return {"messages": new_messages, "next_step": "end"}
+        
+    side = dock_data.get('side', 'top').lower()
+    count = int(dock_data.get('count', 1))
+    width = float(dock_data.get('width', 3.0)) # Door width
+    
+    floor = state['floor_dims']
+    fw = floor['width']
+    fl = floor['length']
+    fh = floor['height']
+    
+    items = []
+    
+    # Determine Wall Coordinate
+    # Top: Z = -Length/2
+    # Bottom: Z = Length/2
+    # Left: X = -Width/2
+    # Right: X = Width/2
+    
+    # We distribute them along the chosen wall.
+    # Spacing = WallLength / (Count + 1)
+    
+    if side == 'top':
+        wall_len = fw
+        z_pos = -fl/2
+        spacing = wall_len / (count + 1)
+        for i in range(count):
+            x = -fw/2 + spacing * (i+1)
+            item = {"type": "dock_door", "x": x, "z": z_pos, "w": width, "h": fh, "rot": 0, "side": "top"}
+            items.append(item)
+            
+    elif side == 'bottom':
+        wall_len = fw
+        z_pos = fl/2
+        spacing = wall_len / (count + 1)
+        for i in range(count):
+            x = -fw/2 + spacing * (i+1)
+            item = {"type": "dock_door", "x": x, "z": z_pos, "w": width, "h": fh, "rot": 0, "side": "bottom"}
+            items.append(item)
+            
+    elif side == 'left':
+        wall_len = fl
+        x_pos = -fw/2
+        spacing = wall_len / (count + 1)
+        for i in range(count):
+            z = -fl/2 + spacing * (i+1)
+            item = {"type": "dock_door", "x": x_pos, "z": z, "w": width, "h": fh, "rot": 90, "side": "left"}
+            items.append(item)
+            
+    elif side == 'right':
+        wall_len = fl
+        x_pos = fw/2
+        spacing = wall_len / (count + 1)
+        for i in range(count):
+            z = -fl/2 + spacing * (i+1)
+            item = {"type": "dock_door", "x": x_pos, "z": z, "w": width, "h": fh, "rot": 90, "side": "right"}
+            items.append(item)
+            
+    new_messages.append(f"Dock Agent: Placed {count} docks on {side} wall.")
+    
+    # --- Finalize Memory ---
+    _save_memory(state, items)
+    
+    return {
+        "placed_items": items,
+        "messages": new_messages,
         "next_step": "end"
     }
+
+def _save_memory(state: AgentState, new_items: List[Dict]):
+    """Helper to save absolute final state to memory"""
+    try:
+        # Load existing or start fresh
+        # Actually state['placed_items'] should hold everything accumulated if we set operator.add
+        # But let's look at what's in state.
+        
+        # We need to list EVERYTHING.
+        # state['placed_items'] likely has [floor, walls, ...racks..., ...aisles..., ...forklifts...]
+        # But 'new_items' are not yet in state when this runs? 
+        # operator.add merges result of this function into state. So they are not there yet.
+        
+        all_items = state.get('placed_items', []) + new_items
+        
+        # Calculate stats
+        floor = state['floor_dims']
+        floor_area = floor['width'] * floor['length']
+        
+        occupied_area = 0
+        for item in all_items:
+            if item.get('type') in ['rack']:
+                occupied_area += item.get('occupied_area', 0)
+            elif item.get('type') == 'forklift':
+                occupied_area += (item.get('w', 0) * item.get('l', 0))
+            elif item.get('type') == 'zone':
+                occupied_area += (item.get('w', 0) * item.get('l', 0))
+                
+        free_area = floor_area - occupied_area
+         
+        memory_snapshot = {
+            "floor": floor,
+            "stats": {
+                "total_area": floor_area,
+                "occupied_area": occupied_area,
+                "free_area": free_area,
+                "utilization": f"{(occupied_area/floor_area)*100:.2f}%"
+            },
+            "occupied_spaces": all_items
+        }
+        
+        with open("warehouse_memory.json", "w") as f:
+            json.dump(memory_snapshot, f, indent=2)
+            
+        print("Dock Agent: Memory snapshot updated with all items.")
+        
+    except Exception as e:
+        print(f"Error saving memory: {e}")
 
 
 # --- Graph ---
@@ -467,6 +719,7 @@ def build_graph():
     workflow.add_node("aisle", aisle_agent)
     workflow.add_node("area", area_agent)
     workflow.add_node("forklift", forklift_agent)
+    workflow.add_node("dock", dock_agent)
     
     workflow.set_entry_point("planner")
     
@@ -491,8 +744,9 @@ def build_graph():
     def router_area(state):
         return state['next_step']
         
-    workflow.add_conditional_edges("area", router_area, {"forklift": "forklift", "end": END})
-    workflow.add_edge("forklift", END)
+    workflow.add_conditional_edges("area", router_area, {"forklift": "forklift", "end": "dock"})
+    workflow.add_edge("forklift", "dock")
+    workflow.add_edge("dock", END)
     
     return workflow.compile()
 

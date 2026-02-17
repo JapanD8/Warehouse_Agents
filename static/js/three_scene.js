@@ -120,6 +120,10 @@ function updateScene(items) {
             buildAisle(item);
         } else if (item.type === 'forklift') {
             buildForklift(item);
+        } else if (item.type === 'dock_door') {
+            buildDockDoor(item);
+        } else if (item.type === 'zone') {
+            buildZone(item);
         }
     });
 }
@@ -236,8 +240,65 @@ function buildForklift(data) {
     const mastGeo = new THREE.BoxGeometry(data.w * 0.1, data.h, data.l * 0.1);
     const mastMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
     const mast = new THREE.Mesh(mastGeo, mastMat);
-    mast.position.set(data.w / 2, data.h / 2, 0); # Front ?
-        group.add(mast);
+    mast.position.set(data.w / 2, data.h / 2, 0); // Front ?
+    group.add(mast);
 
-    sceneState.rackGroup.add(group); # Add to rack group(or create new items group)
+    sceneState.rackGroup.add(group); // Add to rack group(or create new items group)
+}
+
+function buildDockDoor(data) {
+    // data: { x, z, w, h, rot, side }
+    // Render as a black/dark grey plane/box on the wall
+
+    // Slight offset to prevent z-fighting with the wall
+    // Walls are at the edge of the floor.
+
+    // Create a mesh
+    const geo = new THREE.PlaneGeometry(data.w, data.h);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xe0e0e0, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    // Position
+    // The wall goes up to height h. Door usually starts at 0?
+    mesh.position.set(data.x, data.h / 2, data.z);
+
+    // Rotation
+    mesh.rotation.y = THREE.MathUtils.degToRad(data.rot);
+
+    // Offset slightly based on side to be 'on' the wall (inner or outer)
+    // Floor is centered at 0,0.
+    // If side is top (Z = -L/2), we want to be slightly inside? Or just overlay.
+    // Let's add a small offset towards center to make sure it's visible over the wall mesh
+    const offset = 0.6; // Wall thickness assumed or just visual
+
+    if (data.side === 'top') mesh.position.z += offset;
+    if (data.side === 'bottom') mesh.position.z -= offset;
+    if (data.side === 'left') mesh.position.x += offset;
+    if (data.side === 'right') mesh.position.x -= offset;
+
+    mesh.name = 'dock_door';
+    sceneState.floorGroup.add(mesh);
+}
+
+function buildZone(data) {
+    // data: { x, z, w, l, color, label }
+    // Render as a colored plane on the floor, slightly raised
+
+    const geo = new THREE.PlaneGeometry(data.w, data.l);
+    const mat = new THREE.MeshBasicMaterial({
+        color: data.color || 0xcccccc,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.5
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(data.x, 0.05, data.z); // Slightly above floor/aisles
+
+    mesh.name = 'zone_area';
+    sceneState.floorGroup.add(mesh);
+
+    // Optional: Add label? (Complexity might be high for simple text in pure Three.js without FontLoader)
+    // For now, color is the main indicator.
 }
