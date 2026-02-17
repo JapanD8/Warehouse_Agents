@@ -116,9 +116,14 @@ function updateScene(items) {
             buildRack(item);
         } else if (item.type === 'walls') {
             buildWalls(item);
+        } else if (item.type === 'aisle_line') {
+            buildAisle(item);
+        } else if (item.type === 'forklift') {
+            buildForklift(item);
         }
     });
 }
+
 
 function buildFloor(data) {
     // Check if floor already exists to avoid dupes (though clearScene should handle it)
@@ -182,4 +187,57 @@ function buildRack(data) {
     mesh.add(line);
 
     sceneState.rackGroup.add(mesh);
+}
+
+function buildAisle(data) {
+    // data: { x1, z1, x2, z2 }
+    console.log("Building aisle:", data);
+
+    const dx = data.x2 - data.x1;
+    const dz = data.z2 - data.z1;
+    const length = Math.sqrt(dx * dx + dz * dz);
+
+    if (length <= 0) return;
+
+    const cx = (data.x1 + data.x2) / 2;
+    const cz = (data.z1 + data.z2) / 2;
+
+    // Width (X) = length, Height (Y) = 0.05, Depth (Z) = 0.5
+    const geo = new THREE.BoxGeometry(length, 0.05, 0.5);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    mesh.position.set(cx, 0.1, cz);
+
+    // Rotate if needed (for now assumes horizontal aisles along X)
+    const angle = Math.atan2(dz, dx);
+    mesh.rotation.y = -angle;
+
+    mesh.name = 'aisle_strip';
+    sceneState.floorGroup.add(mesh);
+}
+
+function buildForklift(data) {
+    // data: { x, z, w, l, h, id }
+    // Draw a simple forklift proxy (e.g., orange box with a smaller box on front)
+
+    const group = new THREE.Group();
+    group.position.set(data.x, 0, data.z);
+
+    // Body
+    const bodyGeo = new THREE.BoxGeometry(data.w, data.h * 0.6, data.l);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffa500 }); // Orange
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = (data.h * 0.6) / 2;
+    body.castShadow = true;
+    group.add(body);
+
+    // Mast/Forks (Visual indication)
+    const mastGeo = new THREE.BoxGeometry(data.w * 0.1, data.h, data.l * 0.1);
+    const mastMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const mast = new THREE.Mesh(mastGeo, mastMat);
+    mast.position.set(data.w / 2, data.h / 2, 0); # Front ?
+        group.add(mast);
+
+    sceneState.rackGroup.add(group); # Add to rack group(or create new items group)
 }

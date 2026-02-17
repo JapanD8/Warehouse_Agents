@@ -33,6 +33,8 @@ class AgentState(TypedDict):
     placed_items: Annotated[List[Dict[str, Any]], operator.add] 
     errors: List[str]
     next_step: str
+    forklift_data: Dict[str, Any]
+    assigned_area: Dict[str, float]
 
 # --- Agents ---
 
@@ -62,9 +64,19 @@ def planner_agent(state: AgentState):
             "floor": {"width": float, "length": float, "height": float},
             "racks": [
                 {"count": int, "width": float, "length": float, "height": float}
-            ]
+            ],
+            "forklifts": {
+                "count": int, "width": float, "length": float, "height": float
+            },
+            "forklift_area": {
+                "x": float, "z": float, "width": float, "length": float
+            }
         }
-        If dimensions are missing, make reasonable assumptions (Floor: 60x40x12, Rack: 2.5x1.2x6).
+        If dimensions are missing, make reasonable assumptions:
+        Floor: 60x40x12
+        Rack: 2.5x1.2x6
+        Forklift: 1.5x2.5x2.5, count=1 if mentioned but no count.
+        Forklift Area: Optional. If provided, use it. If not, omit or return null.
         """
         
         response = llm.invoke([
@@ -79,6 +91,8 @@ def planner_agent(state: AgentState):
         start_plan = parse_json_markdown(response.content)
         floor_dims = start_plan.get('floor', {'width': 60, 'length': 40, 'height': 12})
         racks_data = start_plan.get('racks', [])
+        forklift_data = start_plan.get('forklifts', {})
+        forklift_area = start_plan.get('forklift_area', None)
         
         rack_id_counter = 1
         for r_batch in racks_data:
@@ -100,7 +114,9 @@ def planner_agent(state: AgentState):
 
     return {
         "floor_dims": floor_dims, 
-        "racks_to_place": racks_to_place, 
+        "racks_to_place": racks_to_place,
+        "forklift_data": forklift_data,
+        "assigned_area": forklift_area, # Initial assignment from LLM if any 
         "messages": new_messages,
         "next_step": "floor_agent"
     }
@@ -220,8 +236,226 @@ def rack_agent(state: AgentState):
     return {
         "placed_items": placed,
         "messages": new_messages,
+        "next_step": "aisle"
+    }
+
+# 4. Aisle Agent: Draws lines between rack rows
+def aisle_agent(state: AgentState):
+    print("--- Aisle Agent ---")
+    new_messages = ["Aisle Agent: Calculating aisle paths..."]
+    
+    try:
+        # Load from memory or state
+        try:
+            with open("warehouse_memory.json", "r") as f:
+                memory_data = json.load(f)
+                placed_racks = memory_data.get("occupied_spaces", [])
+                print(f"Loaded {len(placed_racks)} racks from memory.")
+        except Exception as e:
+            print(f"Memory load failed: {e}")
+            new_messages.append(f"Aisle Agent: Memory load skipped ({str(e)}). Using state.")
+            placed_racks = [item for item in state.get('placed_items', []) if item.get('type') == 'rack']
+
+        if not placed_racks:
+            new_messages.append("Aisle Agent: No racks found to draw aisles.")
+            return {"messages": new_messages}
+
+        # Group by Z coordinate (Rows)
+        rows = {}
+        for r in placed_racks:
+            # Ensure float
+            z = float(r['z'])
+            z_key = round(z, 2)
+            if z_key not in rows:
+                rows[z_key] = []
+            rows[z_key].append(r)
+        
+        sorted_z = sorted(rows.keys())
+        print(f"Found {len(sorted_z)} rows: {sorted_z}")
+        
+        aisle_lines = []
+        
+        # Iterate through adjacent rows
+        for i in range(len(sorted_z) - 1):
+            z1 = sorted_z[i]
+            z2 = sorted_z[i+1]
+            
+            aisle_z = (z1 + z2) / 2.0
+            
+            row1_xs = [float(r['x']) for r in rows[z1]]
+            row2_xs = [float(r['x']) for r in rows[z2]]
+            
+            # Combine for extent
+            all_xs = row1_xs + row2_xs
+            # We ideally want the 'inner' bounds or 'outer' bounds? 
+            # Prompt: "line1 rack-------aiel------line2 racks"
+            # Let's use the extent of the racks.
+            
+            # Use rack width to find edges
+            # But here we just have centers in r['x']? 
+            # r has 'w'.
+            
+            min_x_edge = 10000
+            max_x_edge = -10000
+            
+            combined = rows[z1] + rows[z2]
+            for r in combined:
+                rx = float(r['x'])
+                rw = float(r['w'])
+                min_x_edge = min(min_x_edge, rx - rw/2)
+                max_x_edge = max(max_x_edge, rx + rw/2)
+
+            line_item = {
+                "type": "aisle_line",
+                "x1": float(min_x_edge),
+                "z1": float(aisle_z),
+                "x2": float(max_x_edge),
+                "z2": float(aisle_z)
+            }
+            aisle_lines.append(line_item)
+            new_messages.append(f"Aisle Agent: Added aisle at Z={aisle_z:.2f}")
+
+        print(f"Generated {len(aisle_lines)} aisle lines.")
+        return {
+            "placed_items": aisle_lines, 
+            "messages": new_messages,
+            "next_step": "area"
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "messages": [f"Aisle Agent Error: {str(e)}"],
+            "errors": [str(e)],
+            "next_step": "area"
+        }
+
+# 5. Area Agent: Determines where to place forklifts
+def area_agent(state: AgentState):
+    print("--- Area Agent ---")
+    new_messages = ["Area Agent: Checking for forklift placement area..."]
+    
+    forklift_data = state.get('forklift_data', {})
+    assigned_area = state.get('assigned_area')
+    floor = state['floor_dims']
+    
+    if not forklift_data or not forklift_data.get('count', 0):
+        new_messages.append("Area Agent: No forklifts requested.")
+        # If no forklifts, we skip forklift agent? Or just pass empty.
+        return {
+            "messages": new_messages,
+            "next_step": "end"
+        }
+
+    # If area already assigned (by LLM reading CSV), use it
+    if assigned_area and assigned_area.get('width') and assigned_area.get('length'):
+        new_messages.append(f"Area Agent: Using pre-defined area at ({assigned_area.get('x')}, {assigned_area.get('z')})")
+        return {
+            "messages": new_messages,
+            "assigned_area": assigned_area,
+            "next_step": "forklift"
+        }
+
+    # Else find a spot
+    new_messages.append("Area Agent: No area specified. Searching for empty space...")
+    
+    # Strategy: Place in a corner or side.
+    # Let's find the extent of racks to avoid them.
+    # We can load memory or use state 'placed_items' (racks only).
+    # Simple approach: Place in top-right corner or similar.
+    # Floor goes from -W/2 to W/2 and -L/2 to L/2.
+    
+    # Let's pick a spot at X = +Width/2 - Margin, Z = +Length/2 - Margin
+    # Just a dedicated parking zone.
+    
+    w_floor = floor['width']
+    l_floor = floor['length']
+    
+    # Define a default area size for forklifts
+    area_w = 10.0
+    area_l = 10.0
+    
+    # Position: Bottom Right? (X positive, Z positive)
+    # Racks usually centered or widespread.
+    # Let's check max_x of racks if possible, else just use floor edge.
+    
+    # Safe bet: X = w_floor/2 - area_w/2 - 2 (margin)
+    #           Z = l_floor/2 - area_l/2 - 2
+    
+    pos_x = (w_floor/2) - (area_w/2) - 2
+    pos_z = (l_floor/2) - (area_l/2) - 2
+    
+    assigned_area = {
+        "x": pos_x,
+        "z": pos_z,
+        "width": area_w,
+        "length": area_l
+    }
+    
+    new_messages.append(f"Area Agent: Assigned default area at X={pos_x:.1f}, Z={pos_z:.1f}")
+    
+    return {
+        "assigned_area": assigned_area,
+        "messages": new_messages,
+        "next_step": "forklift"
+    }
+
+# 6. Forklift Agent: Places forklifts
+def forklift_agent(state: AgentState):
+    print("--- Forklift Agent ---")
+    new_messages = ["Forklift Agent: Placing forklifts..."]
+    
+    forklift_data = state.get('forklift_data', {})
+    area = state.get('assigned_area')
+    
+    if not forklift_data or not area:
+         return {"messages": ["Forklift Agent: Missing data."], "next_step": "end"}
+         
+    count = int(forklift_data.get('count', 1))
+    fw = float(forklift_data.get('width', 1.5))
+    fl = float(forklift_data.get('length', 2.5))
+    fh = float(forklift_data.get('height', 2.5))
+    
+    items = []
+    
+    # Simple packing in the area
+    # Grid:
+    cols = int(area['width'] // (fw + 1))
+    if cols < 1: cols = 1
+    
+    start_x = area['x'] - area['width']/2 + fw/2 + 0.5
+    start_z = area['z'] - area['length']/2 + fl/2 + 0.5
+    
+    current_x = start_x
+    current_z = start_z
+    
+    for i in range(count):
+        item = {
+            "type": "forklift",
+            "id": f"forklift_{i+1}",
+            "x": current_x,
+            "z": current_z,
+            "w": fw,
+            "l": fl,
+            "h": fh
+        }
+        items.append(item)
+        
+        # Move next
+        current_x += fw + 1.0
+        if current_x > area['x'] + area['width']/2 - fw/2:
+            current_x = start_x
+            current_z += fl + 1.0
+            
+    new_messages.append(f"Forklift Agent: Placed {count} forklifts.")
+        
+    return {
+        "placed_items": items,
+        "messages": new_messages,
         "next_step": "end"
     }
+
 
 # --- Graph ---
 def build_graph():
@@ -230,6 +464,9 @@ def build_graph():
     workflow.add_node("planner", planner_agent)
     workflow.add_node("floor", floor_agent)
     workflow.add_node("racks", rack_agent)
+    workflow.add_node("aisle", aisle_agent)
+    workflow.add_node("area", area_agent)
+    workflow.add_node("forklift", forklift_agent)
     
     workflow.set_entry_point("planner")
     
@@ -248,7 +485,14 @@ def build_graph():
     )
     
     workflow.add_edge("floor", "racks")
-    workflow.add_edge("racks", END)
+    workflow.add_edge("racks", "aisle")
+    workflow.add_edge("aisle", "area")
+    
+    def router_area(state):
+        return state['next_step']
+        
+    workflow.add_conditional_edges("area", router_area, {"forklift": "forklift", "end": END})
+    workflow.add_edge("forklift", END)
     
     return workflow.compile()
 
