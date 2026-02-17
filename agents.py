@@ -445,7 +445,7 @@ def area_agent(state: AgentState):
         sl = float(staging['length'])
         sx, sz = find_free_spot_near_dock(sw, sl)
         zones.append({
-            "type": "zone", "label": "Staging Area", "color": 0xadd8e6, # Light Blue
+            "type": "zone", "label": "Staging Area", "color": 0x90ee90, # Light Green (matches video)
             "x": sx, "z": sz, "w": sw, "l": sl
         })
         new_messages.append(f"Area Agent: Placing Staging Area at ({sx:.1f}, {sz:.1f})")
@@ -475,7 +475,7 @@ def area_agent(state: AgentState):
             shx += (shw + 5.0) 
             
         zones.append({
-             "type": "zone", "label": "Shipping Area", "color": 0x90ee90, # Light Green
+             "type": "zone", "label": "Shipping Area", "color": 0x778899, # Light Slate Gray (Blue/Grey)
              "x": shx, "z": shz, "w": shw, "l": shl
         })
         new_messages.append(f"Area Agent: Placing Shipping Area at ({shx:.1f}, {shz:.1f})")

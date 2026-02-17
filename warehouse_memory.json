@@ -490,7 +490,7 @@
     {
       "type": "zone",
       "label": "Staging Area",
-      "color": 11393254,
+      "color": 9498256,
       "x": -25.0,
       "z": 12.0,
       "w": 6.0,
@@ -499,7 +499,7 @@
     {
       "type": "zone",
       "label": "Shipping Area",
-      "color": 9498256,
+      "color": 7833753,
       "x": -8.0,
       "z": 10.0,
       "w": 10.0,
