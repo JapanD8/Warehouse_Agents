@@ -49,7 +49,7 @@ A multi-agent system for warehouse planning and optimization using LangGraph and
 
 After uploading the CSV, the system generates a 3D layout. Check out this sample:
 
-<video width="640" height="480" controls>
+<video width="640" height="480" controls autoplay loop muted playsinline>
   <source src="video/sample_clip1.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
