@@ -6,325 +6,630 @@
   },
   "stats": {
     "total_area": 2400.0,
-    "occupied_area": 135.0,
-    "free_area": 2265.0,
-    "utilization": "5.62%"
+    "occupied_area": 308.5,
+    "free_area": 2091.5,
+    "utilization": "12.85%"
   },
   "occupied_spaces": [
     {
+      "type": "floor",
+      "width": 60.0,
+      "length": 40.0,
+      "height": 12.0
+    },
+    {
+      "type": "walls",
+      "width": 60.0,
+      "length": 40.0,
+      "height": 12.0
+    },
+    {
+      "type": "rack",
       "id": "rack_1",
       "x": -26.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_2",
       "x": -23.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_3",
       "x": -20.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_4",
       "x": -17.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_5",
       "x": -14.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_6",
       "x": -11.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_7",
       "x": -8.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_8",
       "x": -5.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_9",
       "x": -2.75,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_10",
       "x": 0.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_11",
       "x": 3.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_12",
       "x": 6.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_13",
       "x": 9.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_14",
       "x": 12.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_15",
       "x": 15.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_16",
       "x": 18.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_17",
       "x": 21.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_18",
       "x": 24.25,
       "z": -17.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_19",
       "x": -26.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_20",
       "x": -23.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_21",
       "x": -20.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_22",
       "x": -17.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_23",
       "x": -14.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_24",
       "x": -11.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_25",
       "x": -8.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_26",
       "x": -5.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_27",
       "x": -2.75,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_28",
       "x": 0.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_29",
       "x": 3.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_30",
       "x": 6.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_31",
       "x": 9.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_32",
       "x": 12.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_33",
       "x": 15.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_34",
       "x": 18.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_35",
       "x": 21.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_36",
       "x": 24.25,
       "z": -8.9,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_37",
       "x": -26.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_38",
       "x": -23.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_39",
       "x": -20.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_40",
       "x": -17.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_41",
       "x": -14.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_42",
       "x": -11.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_43",
       "x": -8.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_44",
       "x": -5.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
     },
     {
+      "type": "rack",
       "id": "rack_45",
       "x": -2.75,
       "z": -0.4,
       "w": 2.5,
-      "l": 1.2
+      "l": 1.2,
+      "h": 6.0,
+      "occupied_area": 3.0
+    },
+    {
+      "type": "aisle_line",
+      "x1": -28.0,
+      "z1": -13.149999999999999,
+      "x2": 25.5,
+      "z2": -13.149999999999999
+    },
+    {
+      "type": "aisle_line",
+      "x1": -28.0,
+      "z1": -4.65,
+      "x2": 25.5,
+      "z2": -4.65
+    },
+    {
+      "type": "zone",
+      "label": "Staging Area",
+      "color": 11393254,
+      "x": -25.0,
+      "z": 12.0,
+      "w": 6.0,
+      "l": 6.0
+    },
+    {
+      "type": "zone",
+      "label": "Shipping Area",
+      "color": 9498256,
+      "x": -8.0,
+      "z": 10.0,
+      "w": 10.0,
+      "l": 10.0
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_1",
+      "x": 19.25,
+      "z": 9.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_2",
+      "x": 21.75,
+      "z": 9.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_3",
+      "x": 24.25,
+      "z": 9.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_4",
+      "x": 26.75,
+      "z": 9.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_5",
+      "x": 19.25,
+      "z": 13.25,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_6",
+      "x": 21.75,
+      "z": 13.25,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_7",
+      "x": 24.25,
+      "z": 13.25,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_8",
+      "x": 26.75,
+      "z": 13.25,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_9",
+      "x": 19.25,
+      "z": 16.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "forklift",
+      "id": "forklift_10",
+      "x": 21.75,
+      "z": 16.75,
+      "w": 1.5,
+      "l": 2.5,
+      "h": 2.5
+    },
+    {
+      "type": "dock_door",
+      "x": -18.0,
+      "z": 20.0,
+      "w": 5.0,
+      "h": 12.0,
+      "rot": 0,
+      "side": "bottom"
+    },
+    {
+      "type": "dock_door",
+      "x": -6.0,
+      "z": 20.0,
+      "w": 5.0,
+      "h": 12.0,
+      "rot": 0,
+      "side": "bottom"
+    },
+    {
+      "type": "dock_door",
+      "x": 6.0,
+      "z": 20.0,
+      "w": 5.0,
+      "h": 12.0,
+      "rot": 0,
+      "side": "bottom"
+    },
+    {
+      "type": "dock_door",
+      "x": 18.0,
+      "z": 20.0,
+      "w": 5.0,
+      "h": 12.0,
+      "rot": 0,
+      "side": "bottom"
     }
   ]
 }
